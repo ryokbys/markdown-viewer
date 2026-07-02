@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="220" viewBox="0 0 720 220" role="img" aria-label="Markdown viewer sample diagram">
+  <rect width="720" height="220" rx="20" fill="#f6f8fa"/>
+  <rect x="28" y="28" width="196" height="164" rx="16" fill="#ffffff" stroke="#d0d7de"/>
+  <rect x="262" y="28" width="196" height="164" rx="16" fill="#ffffff" stroke="#d0d7de"/>
+  <rect x="496" y="28" width="196" height="164" rx="16" fill="#ffffff" stroke="#d0d7de"/>
+
+  <text x="126" y="66" text-anchor="middle" font-size="20" font-family="-apple-system, BlinkMacSystemFont, sans-serif" fill="#1f2328">Markdown</text>
+  <text x="126" y="104" text-anchor="middle" font-size="14" font-family="-apple-system, BlinkMacSystemFont, sans-serif" fill="#57606a">GFM / Math / HTML</text>
+
+  <text x="360" y="66" text-anchor="middle" font-size="20" font-family="-apple-system, BlinkMacSystemFont, sans-serif" fill="#1f2328">Renderer</text>
+  <text x="360" y="104" text-anchor="middle" font-size="14" font-family="-apple-system, BlinkMacSystemFont, sans-serif" fill="#57606a">unified + KaTeX + Shiki</text>
+
+  <text x="594" y="66" text-anchor="middle" font-size="20" font-family="-apple-system, BlinkMacSystemFont, sans-serif" fill="#1f2328">Viewer</text>
+  <text x="594" y="104" text-anchor="middle" font-size="14" font-family="-apple-system, BlinkMacSystemFont, sans-serif" fill="#57606a">theme / width / font size</text>
+
+  <path d="M224 110H258" stroke="#0969da" stroke-width="4" stroke-linecap="round"/>
+  <path d="M458 110H492" stroke="#0969da" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="126" cy="144" r="12" fill="#2da44e"/>
+  <circle cx="360" cy="144" r="12" fill="#0969da"/>
+  <circle cx="594" cy="144" r="12" fill="#8250df"/>
+</svg>

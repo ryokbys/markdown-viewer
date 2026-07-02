@@ -1,0 +1,21 @@
+.markdown-theme-root {
+  --md-bg: #f4fbff;
+  --md-fg: #163047;
+  --md-muted: #4b6b82;
+  --md-border: #c7d9e5;
+  --md-link: #0b69a3;
+  --md-link-hover: #0a527d;
+  --md-code-bg: #eaf4fa;
+  --md-quote-border: #8db8d3;
+  --md-table-header: #e3f0f8;
+  --md-selection: #0b69a322;
+}
+
+.markdown-theme-root blockquote {
+  background: #eef7fc;
+  border-radius: 0 10px 10px 0;
+}
+
+.markdown-theme-root img {
+  box-shadow: 0 10px 24px rgba(11, 105, 163, 0.12);
+}
