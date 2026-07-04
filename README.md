@@ -3,16 +3,6 @@
 Markdown Viewer is a lightweight macOS desktop app for **reading local Markdown files**.
 It is intentionally **view-only**: no editor, no workspace manager, no sync layer.
 
-The app is designed for people who write Markdown in another editor and want a clean live viewer with:
-
-- GitHub-flavored Markdown rendering
-- KaTeX math support
-- Syntax-highlighted code blocks
-- Relative image and relative Markdown link support
-- Auto-reload when the file changes on disk
-- Theme switching with user-provided CSS themes
-- Adjustable font size and text width
-
 ## What this app is for
 
 Use it when you want:
@@ -21,6 +11,7 @@ Use it when you want:
 - a readable GitHub-like presentation for local notes
 - support for math, code blocks, tables, and task lists
 - custom themes without building a full editor
+- export a singe-page PDF
 
 Use another tool if you need:
 
@@ -68,18 +59,16 @@ You can open the `.app` directly or mount the DMG and install from there.
 
 ### Option 3: Install with Homebrew Cask
 
-Build the release DMG first:
+Assuming:
+
+- the app releases are published at `ryokbys/markdown-viewer`
+- the tap repository is published at `ryokbys/homebrew-markdown-viewer`
+
+Users can install with:
 
 ```bash
-CI=false npm run tauri build
-```
-
-Then tap this repository as a local Homebrew tap and install the cask:
-
-```bash
-brew tap --custom-remote kobayashi/markdown-viewer "$(pwd)"
-HOMEBREW_MARKDOWN_VIEWER_DMG="$PWD/src-tauri/target/release/bundle/dmg/Markdown Viewer_0.1.0_aarch64.dmg" \
-  brew install --cask kobayashi/markdown-viewer/markdown-viewer
+brew tap ryokbys/markdown-viewer
+brew install --cask ryokbys/markdown-viewer/markdown-viewer
 ```
 
 This installs:
@@ -91,12 +80,6 @@ Example:
 
 ```bash
 mdv hoge.md
-```
-
-If you later want to remove the local tap:
-
-```bash
-brew untap kobayashi/markdown-viewer
 ```
 
 ## Basic usage
