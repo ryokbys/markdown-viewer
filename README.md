@@ -66,6 +66,39 @@ Generated outputs:
 
 You can open the `.app` directly or mount the DMG and install from there.
 
+### Option 3: Install with Homebrew Cask
+
+Build the release DMG first:
+
+```bash
+CI=false npm run tauri build
+```
+
+Then tap this repository as a local Homebrew tap and install the cask:
+
+```bash
+brew tap --custom-remote kobayashi/markdown-viewer "$(pwd)"
+HOMEBREW_MARKDOWN_VIEWER_DMG="$PWD/src-tauri/target/release/bundle/dmg/Markdown Viewer_0.1.0_aarch64.dmg" \
+  brew install --cask kobayashi/markdown-viewer/markdown-viewer
+```
+
+This installs:
+
+- the GUI app: `Markdown Viewer`
+- the CLI launcher: `mdv`
+
+Example:
+
+```bash
+mdv hoge.md
+```
+
+If you later want to remove the local tap:
+
+```bash
+brew untap kobayashi/markdown-viewer
+```
+
 ## Basic usage
 
 ### Open a Markdown file

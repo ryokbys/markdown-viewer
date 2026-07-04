@@ -1978,8 +1978,11 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
+ "block2",
  "mime_guess",
  "notify",
+ "objc2-foundation",
+ "objc2-web-kit",
  "parking_lot",
  "serde",
  "serde_json",
