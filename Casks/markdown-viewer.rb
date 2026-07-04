@@ -12,5 +12,10 @@ cask "markdown-viewer" do
   depends_on arch: :arm64
 
   app "Markdown Viewer.app"
+
+  postflight do
+    system_command "/usr/bin/xattr",
+                   args: ["-dr", "com.apple.quarantine", "#{appdir}/Markdown Viewer.app"]
+  end
   binary "#{appdir}/Markdown Viewer.app/Contents/MacOS/markdown-viewer", target: "mdv"
 end
