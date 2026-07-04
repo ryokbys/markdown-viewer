@@ -31,6 +31,11 @@ button {
   cursor: pointer;
 }
 
+button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
 .app-shell {
   display: flex;
   flex-direction: column;
@@ -91,6 +96,22 @@ button {
 
 .primary-button:hover {
   background: #0860ca;
+}
+
+.secondary-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #d0d7de;
+  border-radius: 8px;
+  padding: 9px 14px;
+  background: #fff;
+  color: #1f2328;
+  font-weight: 600;
+}
+
+.secondary-button:hover:not(:disabled) {
+  background: #f6f8fa;
 }
 
 .document-title {
@@ -164,6 +185,24 @@ button {
   border-radius: 16px;
   background: #fff;
   box-shadow: 0 12px 28px rgba(31, 35, 40, 0.08);
+}
+
+.pdf-export-root {
+  display: none;
+}
+
+body.pdf-export-mode {
+  background: #fff;
+}
+
+body.pdf-export-mode .toolbar,
+body.pdf-export-mode .message-stack,
+body.pdf-export-mode .viewer-shell {
+  display: none !important;
+}
+
+body.pdf-export-mode .pdf-export-root {
+  display: block;
 }
 
 .markdown-theme-root {

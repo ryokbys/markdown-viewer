@@ -4,12 +4,22 @@ use std::{
     path::{Component, Path, PathBuf},
 };
 
+#[cfg(target_os = "macos")]
+use std::sync::mpsc;
+
 use anyhow::{anyhow, Context};
 use base64::{engine::general_purpose::STANDARD, Engine};
 use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, State};
+
+#[cfg(target_os = "macos")]
+use block2::RcBlock;
+#[cfg(target_os = "macos")]
+use objc2_foundation::{NSDataWritingOptions, NSString};
+#[cfg(target_os = "macos")]
+use objc2_web_kit::WKWebView;
 
 const DOCUMENT_UPDATED_EVENT: &str = "document-updated";
 const DOCUMENT_OPEN_REQUESTED_EVENT: &str = "document-open-requested";
@@ -173,6 +183,74 @@ fn save_settings(app: AppHandle, settings: ViewerSettings) -> Result<(), String>
     let serialized =
         serde_json::to_string_pretty(&settings.normalized()).map_err(error_message)?;
     fs::write(path, serialized).map_err(error_message)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+async fn export_current_pdf(
+    window: tauri::WebviewWindow,
+    output_path: String,
+) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        export_current_pdf_macos(window, output_path)
+            .await
+            .map_err(error_message)
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = window;
+        let _ = output_path;
+        Err("PDF export is only available on macOS.".to_string())
+    }
+}
+
+#[cfg(target_os = "macos")]
+async fn export_current_pdf_macos(
+    window: tauri::WebviewWindow,
+    output_path: String,
+) -> anyhow::Result<()> {
+    let (sender, receiver) = mpsc::channel::<Result<(), String>>();
+
+    window
+        .eval("document.body.classList.add('pdf-export-mode');")
+        .map_err(|error| anyhow!(error.to_string()))?;
+    std::thread::sleep(std::time::Duration::from_millis(50));
+
+    let export_result = (|| -> anyhow::Result<()> {
+        window.with_webview(move |webview| unsafe {
+            let view: &WKWebView = &*webview.inner().cast();
+            let callback_path = output_path.clone();
+            let handler = RcBlock::new(
+                move |data: *mut objc2_foundation::NSData, error: *mut objc2_foundation::NSError| {
+                    if let Some(error) = error.as_ref() {
+                        let _ = sender.send(Err(error.to_string()));
+                        return;
+                    }
+
+                    let Some(data) = data.as_ref() else {
+                        let _ = sender.send(Err("PDF data was empty.".to_string()));
+                        return;
+                    };
+
+                    let path = NSString::from_str(&callback_path);
+                    let result = data
+                        .writeToFile_options_error(&path, NSDataWritingOptions::Atomic)
+                        .map_err(|error| error.to_string());
+                    let _ = sender.send(result);
+                },
+            );
+            view.createPDFWithConfiguration_completionHandler(None, &handler);
+        })?;
+
+        receiver
+            .recv()
+            .map_err(|_| anyhow!("PDF export callback was dropped."))?
+            .map_err(|message| anyhow!(message))
+    })();
+
+    let _ = window.eval("document.body.classList.remove('pdf-export-mode');");
+    export_result
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -490,6 +568,7 @@ pub fn run() {
             read_theme_css,
             load_settings,
             save_settings,
+            export_current_pdf,
             load_image_asset,
             resolve_local_link,
             get_launch_markdown_path,

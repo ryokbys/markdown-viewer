@@ -27,7 +27,7 @@ Use another tool if you need:
 - Markdown editing
 - multi-tab note management
 - search across many documents
-- PDF export or printing
+- printing
 
 ## Installation
 
@@ -96,6 +96,11 @@ You can adjust:
 - text width
 
 These settings are stored in the app config and reused the next time you launch the app.
+
+### Export a PDF
+
+Click **Export PDF** in the top-right toolbar.
+The app asks you where to save the file, then exports the current document using the **currently selected theme**, font size, and text width.
 
 ## Custom themes
 

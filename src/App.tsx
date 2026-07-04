@@ -2,9 +2,9 @@ import { type MouseEvent, useCallback, useEffect, useMemo, useRef, useState } fr
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
-import { open } from "@tauri-apps/plugin-dialog";
+import { open, save } from "@tauri-apps/plugin-dialog";
 import { openPath, openUrl } from "@tauri-apps/plugin-opener";
-import { FaFileAlt, FaFolderOpen, FaPalette, FaTextHeight } from "react-icons/fa";
+import { FaFileAlt, FaFilePdf, FaFolderOpen, FaPalette, FaTextHeight } from "react-icons/fa";
 import "katex/dist/katex.min.css";
 import "./App.css";
 import { renderMarkdown } from "./lib/markdown";
@@ -31,6 +31,10 @@ function getWindowWidth() {
   return typeof window === "undefined" ? DEFAULT_WINDOW_WIDTH : window.innerWidth;
 }
 
+function ensurePdfExtension(path: string) {
+  return path.toLowerCase().endsWith(".pdf") ? path : `${path}.pdf`;
+}
+
 function App() {
   const [document, setDocument] = useState<DocumentPayload | null>(null);
   const [html, setHtml] = useState("");
@@ -44,6 +48,7 @@ function App() {
   const [isBusy, setIsBusy] = useState(false);
   const [windowWidth, setWindowWidth] = useState(() => getWindowWidth());
   const contentRef = useRef<HTMLDivElement | null>(null);
+  const pdfExportContentRef = useRef<HTMLDivElement | null>(null);
   const pendingAnchorRef = useRef<string | null>(null);
   const pendingScrollRatioRef = useRef<number | null>(null);
   const themeCssCache = useRef<Map<string, string>>(new Map([["default", ""]]));
@@ -197,6 +202,41 @@ function App() {
       await loadDocument(selected);
     }
   }, [loadDocument]);
+
+  const handleExportPdf = useCallback(async () => {
+    if (!document) {
+      return;
+    }
+
+    const exportSource = contentRef.current?.querySelector<HTMLElement>(".markdown-content");
+    const exportTarget = pdfExportContentRef.current;
+    if (!exportSource || !exportTarget) {
+      setErrorMessage("PDF 出力の準備に失敗しました。");
+      return;
+    }
+    exportTarget.innerHTML = exportSource.innerHTML;
+
+    const suggestedName = `${document.title.replace(/\.md$/i, "") || "document"}.pdf`;
+    const selected = await save({
+      defaultPath: suggestedName,
+      filters: [{ name: "PDF", extensions: ["pdf"] }],
+    });
+
+    if (typeof selected !== "string") {
+      return;
+    }
+
+    setIsBusy(true);
+    setErrorMessage(null);
+
+    try {
+      await invoke("export_current_pdf", { outputPath: ensurePdfExtension(selected) });
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : String(error));
+    } finally {
+      setIsBusy(false);
+    }
+  }, [document]);
 
   const handleDropPaths = useCallback(
     async (paths: string[]) => {
@@ -384,6 +424,8 @@ function App() {
 
   return (
     <main className="app-shell">
+      {themeCss && <style>{themeCss}</style>}
+
       <header className="toolbar">
         <div className="toolbar-group">
           <button className="primary-button" onClick={() => void handleOpenDialog()} type="button">
@@ -438,6 +480,16 @@ function App() {
             </select>
             <span>{computedTextWidth}px</span>
           </label>
+
+          <button
+            className="secondary-button"
+            disabled={!document || isBusy}
+            onClick={() => void handleExportPdf()}
+            type="button"
+          >
+            <FaFilePdf />
+            <span>Export PDF</span>
+          </button>
         </div>
       </header>
 
@@ -462,27 +514,38 @@ function App() {
             </div>
           </div>
         ) : (
-          <>
-            {themeCss && <style>{themeCss}</style>}
-            <div ref={contentRef} className="content-scroll">
-              <article
-                className="markdown-theme-root"
-                style={{
-                  ["--viewer-font-size" as string]: `${settings.fontSize}px`,
-                  ["--viewer-text-width" as string]: `${computedTextWidth}px`,
-                }}
-              >
-                <div
-                  className="markdown-body markdown-content"
-                  dangerouslySetInnerHTML={{ __html: html }}
-                  onClick={(event) => void handleContentClick(event)}
-                />
-              </article>
-            </div>
-          </>
+          <div ref={contentRef} className="content-scroll">
+            <article
+              className="markdown-theme-root"
+              style={{
+                ["--viewer-font-size" as string]: `${settings.fontSize}px`,
+                ["--viewer-text-width" as string]: `${computedTextWidth}px`,
+              }}
+            >
+              <div
+                className="markdown-body markdown-content"
+                dangerouslySetInnerHTML={{ __html: html }}
+                onClick={(event) => void handleContentClick(event)}
+              />
+            </article>
+          </div>
         )}
-        {isBusy && <div className="busy-indicator">Loading…</div>}
+        {isBusy && <div className="busy-indicator">Working…</div>}
       </section>
+
+      {document && (
+        <section className="pdf-export-root" aria-hidden="true">
+          <article
+            className="markdown-theme-root"
+            style={{
+              ["--viewer-font-size" as string]: `${settings.fontSize}px`,
+              ["--viewer-text-width" as string]: `${computedTextWidth}px`,
+            }}
+          >
+            <div ref={pdfExportContentRef} className="markdown-body markdown-content" />
+          </article>
+        </section>
+      )}
     </main>
   );
 }
