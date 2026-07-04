@@ -181,12 +181,16 @@ button {
   --md-selection: #0969da22;
   color: var(--md-fg);
   background: var(--md-bg);
-  max-width: var(--viewer-text-width);
-  margin: 0 auto;
+  min-height: 100%;
   padding: 48px 40px 80px;
   font-size: var(--viewer-font-size);
   line-height: 1.75;
   word-break: break-word;
+}
+
+.markdown-content {
+  max-width: var(--viewer-text-width);
+  margin: 0 auto;
 }
 
 .markdown-theme-root ::selection {

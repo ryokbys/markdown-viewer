@@ -1,6 +1,6 @@
 export type ViewerSettings = {
   fontSize: number;
-  textWidth: number;
+  textWidthPercent: number;
   theme: string;
 };
 

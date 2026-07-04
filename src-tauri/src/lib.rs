@@ -39,10 +39,11 @@ struct ThemeOption {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", default)]
 struct ViewerSettings {
     font_size: u16,
-    text_width: u16,
+    #[serde(alias = "textWidth")]
+    text_width_percent: u16,
     theme: String,
 }
 
@@ -50,9 +51,17 @@ impl Default for ViewerSettings {
     fn default() -> Self {
         Self {
             font_size: 16,
-            text_width: 760,
+            text_width_percent: 70,
             theme: DEFAULT_THEME_ID.to_string(),
         }
+    }
+}
+
+impl ViewerSettings {
+    fn normalized(mut self) -> Self {
+        self.font_size = self.font_size.clamp(14, 26);
+        self.text_width_percent = normalize_text_width_percent(self.text_width_percent);
+        self
     }
 }
 
@@ -150,7 +159,9 @@ fn load_settings(app: AppHandle) -> Result<ViewerSettings, String> {
     }
 
     let content = fs::read_to_string(path).map_err(error_message)?;
-    Ok(serde_json::from_str(&content).unwrap_or_default())
+    Ok(serde_json::from_str::<ViewerSettings>(&content)
+        .unwrap_or_default()
+        .normalized())
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -159,7 +170,8 @@ fn save_settings(app: AppHandle, settings: ViewerSettings) -> Result<(), String>
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(error_message)?;
     }
-    let serialized = serde_json::to_string_pretty(&settings).map_err(error_message)?;
+    let serialized =
+        serde_json::to_string_pretty(&settings.normalized()).map_err(error_message)?;
     fs::write(path, serialized).map_err(error_message)
 }
 
@@ -205,6 +217,20 @@ fn get_launch_markdown_path(state: State<'_, AppState>) -> Result<Option<String>
             .flatten()
             .map(|path| path.to_string_lossy().into_owned())
     }))
+}
+
+fn normalize_text_width_percent(value: u16) -> u16 {
+    const PRESETS: [u16; 4] = [60, 70, 80, 90];
+
+    let mut normalized = value;
+    if normalized > 100 {
+        normalized = ((normalized as f32 / 1100.0) * 100.0).round() as u16;
+    }
+
+    PRESETS
+        .into_iter()
+        .min_by_key(|preset| preset.abs_diff(normalized))
+        .unwrap_or(70)
 }
 
 fn split_link_target(href: &str) -> (&str, Option<String>) {
@@ -380,7 +406,7 @@ fn error_message(error: impl std::fmt::Display) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{canonical_markdown_path, resolve_relative_target};
+    use super::{canonical_markdown_path, normalize_text_width_percent, resolve_relative_target};
     use std::fs;
     use tempfile::tempdir;
 
@@ -433,6 +459,13 @@ mod tests {
         .expect_err("parent traversal must fail");
 
         assert!(error.to_string().contains("基準ディレクトリの外側"));
+    }
+
+    #[test]
+    fn normalize_text_width_percent_migrates_old_pixel_values() {
+        assert_eq!(normalize_text_width_percent(760), 70);
+        assert_eq!(normalize_text_width_percent(1200), 90);
+        assert_eq!(normalize_text_width_percent(83), 80);
     }
 }
 

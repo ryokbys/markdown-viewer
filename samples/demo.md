@@ -21,7 +21,7 @@
 | --- | --- |
 | theme | GitHub Light |
 | font size | 16px |
-| text width | 760px |
+| text width | 70% |
 
 - [x] GFM table
 - [x] task list
@@ -48,7 +48,7 @@ $$
 ```ts
 const settings = {
   fontSize: 16,
-  textWidth: 760,
+  textWidthPercent: 70,
   theme: "default",
 };
 

@@ -17,14 +17,19 @@ import type {
   ViewerSettings,
 } from "./lib/types";
 
-const FONT_SIZE_PRESETS = [14, 16, 18, 20];
-const TEXT_WIDTH_PRESETS = [680, 760, 860];
+const FONT_SIZE_PRESETS = [14, 16, 18, 20, 22, 24, 26];
+const TEXT_WIDTH_PERCENT_PRESETS = [60, 70, 80, 90];
+const DEFAULT_WINDOW_WIDTH = 1100;
 const DEFAULT_SETTINGS: ViewerSettings = {
   fontSize: 16,
-  textWidth: 760,
+  textWidthPercent: 70,
   theme: "default",
 };
 const DEFAULT_THEME_OPTION: ThemeOption = { id: "default", name: "GitHub Light" };
+
+function getWindowWidth() {
+  return typeof window === "undefined" ? DEFAULT_WINDOW_WIDTH : window.innerWidth;
+}
 
 function App() {
   const [document, setDocument] = useState<DocumentPayload | null>(null);
@@ -37,6 +42,7 @@ function App() {
   const [watcherNotice, setWatcherNotice] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
+  const [windowWidth, setWindowWidth] = useState(() => getWindowWidth());
   const contentRef = useRef<HTMLDivElement | null>(null);
   const pendingAnchorRef = useRef<string | null>(null);
   const pendingScrollRatioRef = useRef<number | null>(null);
@@ -45,6 +51,11 @@ function App() {
   const activeThemeOptions = useMemo(
     () => [DEFAULT_THEME_OPTION, ...themeOptions.filter((option) => option.id !== "default")],
     [themeOptions],
+  );
+
+  const computedTextWidth = useMemo(
+    () => Math.round((windowWidth * settings.textWidthPercent) / 100),
+    [settings.textWidthPercent, windowWidth],
   );
 
   const persistSettings = useCallback(async (next: ViewerSettings) => {
@@ -267,6 +278,12 @@ function App() {
   }, [loadDocument, loadThemeOptions]);
 
   useEffect(() => {
+    const handleResize = () => setWindowWidth(getWindowWidth());
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  useEffect(() => {
     void renderMarkdown(document?.markdown ?? "")
       .then((nextHtml) => {
         setHtml(nextHtml);
@@ -408,15 +425,18 @@ function App() {
           <label>
             <FaFileAlt />
             <select
-              value={String(settings.textWidth)}
-              onChange={(event) => void updateSetting("textWidth", Number(event.currentTarget.value))}
+              value={String(settings.textWidthPercent)}
+              onChange={(event) =>
+                void updateSetting("textWidthPercent", Number(event.currentTarget.value))
+              }
             >
-              {TEXT_WIDTH_PRESETS.map((width) => (
-                <option key={width} value={width}>
-                  {width}px
+              {TEXT_WIDTH_PERCENT_PRESETS.map((percent) => (
+                <option key={percent} value={percent}>
+                  {percent}%
                 </option>
               ))}
             </select>
+            <span>{computedTextWidth}px</span>
           </label>
         </div>
       </header>
@@ -444,17 +464,20 @@ function App() {
         ) : (
           <>
             {themeCss && <style>{themeCss}</style>}
-            <div
-              ref={contentRef}
-              className="content-scroll"
-              style={{ ["--viewer-font-size" as string]: `${settings.fontSize}px` }}
-            >
+            <div ref={contentRef} className="content-scroll">
               <article
-                className="markdown-theme-root markdown-body"
-                style={{ ["--viewer-text-width" as string]: `${settings.textWidth}px` }}
-                dangerouslySetInnerHTML={{ __html: html }}
-                onClick={(event) => void handleContentClick(event)}
-              />
+                className="markdown-theme-root"
+                style={{
+                  ["--viewer-font-size" as string]: `${settings.fontSize}px`,
+                  ["--viewer-text-width" as string]: `${computedTextWidth}px`,
+                }}
+              >
+                <div
+                  className="markdown-body markdown-content"
+                  dangerouslySetInnerHTML={{ __html: html }}
+                  onClick={(event) => void handleContentClick(event)}
+                />
+              </article>
             </div>
           </>
         )}
