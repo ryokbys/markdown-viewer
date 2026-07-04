@@ -29,11 +29,14 @@ jobs:
         env:
           CI: false
 
-      - name: Upload DMG to GitHub Release
+      - name: Create GitHub Release and upload DMG
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="${{ github.ref_name }}"
           VERSION="${TAG#v}"
           DMG="src-tauri/target/release/bundle/dmg/Markdown Viewer_${VERSION}_aarch64.dmg"
-          gh release upload "$TAG" "$DMG" --clobber
+          gh release create "$TAG" "$DMG" \
+            --title "$TAG" \
+            --generate-notes \
+            --latest
