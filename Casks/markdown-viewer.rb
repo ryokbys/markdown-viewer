@@ -2,7 +2,9 @@ cask "markdown-viewer" do
   version "0.1.0"
   sha256 :no_check
 
-  url "file://#{File.expand_path(ENV.fetch("HOMEBREW_MARKDOWN_VIEWER_DMG")).gsub(" ", "%20")}"
+  dmg_path = ENV["HOMEBREW_MARKDOWN_VIEWER_DMG"] || "/tmp/markdown-viewer.dmg"
+
+  url "file://#{File.expand_path(dmg_path).gsub(" ", "%20")}"
   name "Markdown Viewer"
   desc "View-only Markdown reader for macOS"
   homepage "file://#{File.expand_path("..", __dir__)}"
