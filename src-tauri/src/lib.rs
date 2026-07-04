@@ -213,7 +213,7 @@ async fn export_current_pdf_macos(
     let (sender, receiver) = mpsc::channel::<Result<(), String>>();
 
     window
-        .eval("document.body.classList.add('pdf-export-mode');")
+        .eval("document.documentElement.classList.add('pdf-export-mode'); document.body.classList.add('pdf-export-mode');")
         .map_err(|error| anyhow!(error.to_string()))?;
     std::thread::sleep(std::time::Duration::from_millis(50));
 
@@ -249,7 +249,7 @@ async fn export_current_pdf_macos(
             .map_err(|message| anyhow!(message))
     })();
 
-    let _ = window.eval("document.body.classList.remove('pdf-export-mode');");
+    let _ = window.eval("document.documentElement.classList.remove('pdf-export-mode'); document.body.classList.remove('pdf-export-mode');");
     export_result
 }
 
