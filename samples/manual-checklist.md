@@ -23,7 +23,7 @@
 
 コピー先:
 
-- `~/Library/Application Support/com.kobayashi.markdownviewer/themes/`
+- `~/Library/Application Support/com.ryokbys.markdownviewer/themes/`
 
 ---
 

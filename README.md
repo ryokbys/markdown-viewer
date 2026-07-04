@@ -125,7 +125,7 @@ User themes are plain CSS files.
 Theme directory:
 
 ```text
-~/Library/Application Support/com.kobayashi.markdownviewer/themes/
+~/Library/Application Support/com.ryokbys.markdownviewer/themes/
 ```
 
 Drop `.css` files into that directory and the app will detect them automatically.
