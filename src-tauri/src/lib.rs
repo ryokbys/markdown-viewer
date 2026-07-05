@@ -559,6 +559,13 @@ pub fn run() {
             let state = app.state::<AppState>();
             start_theme_watcher(&app_handle, &state)
                 .map_err(|error| std::io::Error::other(error.to_string()))?;
+            #[cfg(debug_assertions)]
+            {
+                let window = app.get_webview_window("main").unwrap();
+                // dev モード初回ロード時の race condition でページが白画面になる既知の問題の回避。
+                // Vite dev server が完全に準備できるまで少し待ってからリロードする。
+                window.eval("setTimeout(function(){window.location.reload();},300)").ok();
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
