@@ -88,7 +88,7 @@ mdv hoge.md
 
 You can open a local `.md` file by:
 
-- clicking **Open…**
+- clicking **Open…** or pressing `Cmd+O`
 - dragging a file onto the window
 - opening an associated `.md` file from Finder
 
@@ -108,7 +108,7 @@ When the file changes on disk, the viewer reloads automatically and tries to pre
 You can adjust:
 
 - theme
-- font size
+- font size (`-` to decrease, `^` to increase)
 - text width
 
 These settings are stored in the app config and reused the next time you launch the app.
