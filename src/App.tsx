@@ -322,6 +322,48 @@ function App() {
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "SELECT" || target.tagName === "TEXTAREA") {
+        return;
+      }
+
+      if (event.metaKey && event.key === "o") {
+        event.preventDefault();
+        void handleOpenDialog();
+        return;
+      }
+
+      if (!event.metaKey && !event.ctrlKey && !event.altKey) {
+        if (event.key === "-") {
+          event.preventDefault();
+          setSettings((prev) => {
+            const idx = FONT_SIZE_PRESETS.indexOf(prev.fontSize);
+            if (idx <= 0) return prev;
+            const next = { ...prev, fontSize: FONT_SIZE_PRESETS[idx - 1] };
+            void persistSettings(next);
+            return next;
+          });
+          return;
+        }
+        if (event.key === "^") {
+          event.preventDefault();
+          setSettings((prev) => {
+            const idx = FONT_SIZE_PRESETS.indexOf(prev.fontSize);
+            if (idx < 0 || idx >= FONT_SIZE_PRESETS.length - 1) return prev;
+            const next = { ...prev, fontSize: FONT_SIZE_PRESETS[idx + 1] };
+            void persistSettings(next);
+            return next;
+          });
+          return;
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleOpenDialog, persistSettings]);
+
 
   useEffect(() => {
     void renderMarkdown(document?.markdown ?? "")
