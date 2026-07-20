@@ -17,7 +17,7 @@ import type {
   ViewerSettings,
 } from "./lib/types";
 
-const FONT_SIZE_PRESETS = [14, 16, 18, 20, 22, 24, 26];
+const FONT_SIZE_PRESETS = [14, 16, 18, 20, 22, 24, 26, 28, 30, 32];
 const TEXT_WIDTH_PERCENT_PRESETS = [60, 70, 80, 90];
 const DEFAULT_WINDOW_WIDTH = 1100;
 const DEFAULT_SETTINGS: ViewerSettings = {

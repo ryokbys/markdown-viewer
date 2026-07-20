@@ -69,7 +69,7 @@ impl Default for ViewerSettings {
 
 impl ViewerSettings {
     fn normalized(mut self) -> Self {
-        self.font_size = self.font_size.clamp(14, 26);
+        self.font_size = self.font_size.clamp(14, 32);
         self.text_width_percent = normalize_text_width_percent(self.text_width_percent);
         self
     }
