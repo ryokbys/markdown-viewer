@@ -1,16 +1,16 @@
 # Linked Page
 
-`demo.md` からの相対リンク遷移確認用ページです。
+This page is for verifying relative link navigation from `demo.md`.
 
-- [元のページへ戻る](demo.md)
-- [このページの下へ](#最下部)
+- [Back to the previous page](demo.md)
+- [Jump to the bottom of this page](#bottom)
 
-## リスト
+## List
 
-1. 同一ウィンドウで遷移する
-2. アンカーリンクでスクロールする
-3. 画像は同一ディレクトリ配下だけ許可される
+1. Navigation happens in the same window
+2. Anchor links scroll within the document
+3. Images are only allowed from within the same directory
 
-## 最下部
+## Bottom
 
-ここまで来れば、アンカー遷移は成功です。
+If you can read this, anchor navigation is working correctly.

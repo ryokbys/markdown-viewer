@@ -1,23 +1,23 @@
 # Markdown Viewer Demo
 
-この文書は手動確認用のサンプルです。
+This document is a sample for manual verification.
 
 - GFM
-- 数式
-- コードハイライト
-- 相対リンク
-- 相対画像
-- 生HTMLサニタイズ確認
+- Math
+- Syntax highlighting
+- Relative links
+- Relative images
+- Raw HTML sanitization
 
-## 目次代わりのリンク
+## Links (in place of a table of contents)
 
-- [数式セクションへ](#数式セクション)
-- [コードセクションへ](#コードセクション)
-- [別ページへ移動](linked.md)
+- [Jump to Math section](#math-section)
+- [Jump to Code section](#code-section)
+- [Open another page](linked.md)
 
-## 表とタスクリスト
+## Table and task list
 
-| 項目 | 値 |
+| Item | Value |
 | --- | --- |
 | theme | GitHub Light |
 | font size | 16px |
@@ -28,22 +28,22 @@
 - [x] relative image
 - [ ] external image is blocked by design
 
-## 引用
+## Blockquote
 
-> Markdown Viewer は表示専用です。
-> 外部エディタと併用して確認する想定です。
+> Markdown Viewer is view-only.
+> Intended to be used alongside an external editor.
 
-## 数式セクション
+## Math section
 
-インライン数式: $e^{i\pi} + 1 = 0$
+Inline math: $e^{i\pi} + 1 = 0$
 
-ブロック数式:
+Block math:
 
 $$
 \int_0^1 x^2 \, dx = \frac{1}{3}
 $$
 
-## コードセクション
+## Code section
 
 ```ts
 const settings = {
@@ -55,21 +55,21 @@ const settings = {
 console.log(settings);
 ```
 
-## 相対画像
+## Relative image
 
-![ローカルSVG画像](assets/sample-diagram.svg)
+![Local SVG image](assets/sample-diagram.svg)
 
-## 生HTML
+## Raw HTML
 
 <div class="custom-html-block">
-  <strong>HTML block</strong> も描画されます。
+  <strong>HTML block</strong> is rendered.
 </div>
 
 <script>
   console.log('this should not execute');
 </script>
 
-## 外部リンク
+## External links
 
 - [Tauri](https://tauri.app/)
 - [React](https://react.dev/)
