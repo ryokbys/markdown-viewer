@@ -321,7 +321,7 @@ fn split_link_target(href: &str) -> (&str, Option<String>) {
 fn read_markdown_document(path: &str) -> anyhow::Result<DocumentPayload> {
     let canonical = canonical_markdown_path(path)?;
     let markdown = fs::read_to_string(&canonical)
-        .with_context(|| format!("Markdown を読めません: {}", canonical.display()))?;
+        .with_context(|| format!("Cannot read Markdown: {}", canonical.display()))?;
     let title = canonical
         .file_name()
         .and_then(|name| name.to_str())
@@ -342,15 +342,15 @@ fn canonical_markdown_path(path: &str) -> anyhow::Result<PathBuf> {
         .and_then(|extension| extension.to_str())
         .is_none_or(|extension| !extension.eq_ignore_ascii_case("md"))
     {
-        return Err(anyhow!("`.md` ファイルだけ開けます。"));
+        return Err(anyhow!("Only `.md` files can be opened."));
     }
 
     let canonical = candidate
         .canonicalize()
-        .with_context(|| format!("ファイルを開けません: {}", candidate.display()))?;
+        .with_context(|| format!("Cannot open file: {}", candidate.display()))?;
 
     if !canonical.is_file() {
-        return Err(anyhow!("ファイルではありません: {}", canonical.display()));
+        return Err(anyhow!("Not a file: {}", canonical.display()));
     }
 
     Ok(canonical)
@@ -358,36 +358,36 @@ fn canonical_markdown_path(path: &str) -> anyhow::Result<PathBuf> {
 
 fn resolve_relative_target(document_path: &str, raw_target: &str) -> anyhow::Result<PathBuf> {
     if raw_target.trim().is_empty() {
-        return Err(anyhow!("リンク先が空です。"));
+        return Err(anyhow!("Link target is empty."));
     }
 
     if raw_target.starts_with("http://") || raw_target.starts_with("https://") {
-        return Err(anyhow!("外部 URL はここでは解決しません。"));
+        return Err(anyhow!("External URLs cannot be resolved here."));
     }
 
     let decoded = urlencoding::decode(raw_target)
-        .map_err(|_| anyhow!("リンクを解釈できません: {raw_target}"))?
+        .map_err(|_| anyhow!("Cannot parse link: {raw_target}"))?
         .into_owned();
     let relative = PathBuf::from(decoded);
 
     if relative.is_absolute() || escapes_base_dir(&relative) {
-        return Err(anyhow!("基準ディレクトリの外側は参照できません。"));
+        return Err(anyhow!("Cannot access paths outside the base directory."));
     }
 
     let document = canonical_markdown_path(document_path)?;
     let base_dir = document
         .parent()
-        .ok_or_else(|| anyhow!("基準ディレクトリを決定できません。"))?
+        .ok_or_else(|| anyhow!("Cannot determine base directory."))?
         .canonicalize()
-        .context("基準ディレクトリを正規化できません。")?;
+        .context("Cannot canonicalize base directory.")?;
 
     let target = base_dir.join(relative);
     let canonical = target
         .canonicalize()
-        .with_context(|| format!("リンク先を開けません: {}", target.display()))?;
+        .with_context(|| format!("Cannot open link target: {}", target.display()))?;
 
     if !canonical.starts_with(&base_dir) {
-        return Err(anyhow!("基準ディレクトリの外側は参照できません。"));
+        return Err(anyhow!("Cannot access paths outside the base directory."));
     }
 
     Ok(canonical)
@@ -401,8 +401,8 @@ fn settings_path(app: &AppHandle) -> anyhow::Result<PathBuf> {
     let app_dir = app
         .path()
         .app_data_dir()
-        .context("アプリ設定ディレクトリを取得できません。")?;
-    fs::create_dir_all(&app_dir).context("アプリ設定ディレクトリを作成できません。")?;
+        .context("Cannot get app data directory.")?;
+    fs::create_dir_all(&app_dir).context("Cannot create app data directory.")?;
     Ok(app_dir.join("config.json"))
 }
 
@@ -410,15 +410,15 @@ fn ensure_theme_dir(app: &AppHandle) -> anyhow::Result<PathBuf> {
     let dir = app
         .path()
         .app_data_dir()
-        .context("テーマディレクトリを取得できません。")?
+        .context("Cannot get theme directory.")?
         .join("themes");
-    fs::create_dir_all(&dir).context("テーマディレクトリを作成できません。")?;
+    fs::create_dir_all(&dir).context("Cannot create theme directory.")?;
     Ok(dir)
 }
 
 fn theme_path(app: &AppHandle, theme_id: &str) -> anyhow::Result<PathBuf> {
     if !is_safe_theme_id(theme_id) {
-        return Err(anyhow!("不正なテーマ名です。"));
+        return Err(anyhow!("Invalid theme name."));
     }
     Ok(ensure_theme_dir(app)?.join(format!("{theme_id}.css")))
 }
@@ -536,7 +536,7 @@ mod tests {
         )
         .expect_err("parent traversal must fail");
 
-        assert!(error.to_string().contains("基準ディレクトリの外側"));
+        assert!(error.to_string().contains("outside the base directory"));
     }
 
     #[test]

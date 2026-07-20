@@ -124,7 +124,7 @@ function App() {
         setSettings(next);
         await persistSettings(next);
         if (!options.silentFallback) {
-          setErrorMessage("テーマを読み込めなかったため、既定テーマに戻しました。");
+          setErrorMessage("Failed to load theme. Reverted to the default theme.");
         }
       }
     },
@@ -173,7 +173,7 @@ function App() {
         if (/^https?:\/\//i.test(source)) {
           image.replaceWith(Object.assign(globalThis.document.createElement("span"), {
             className: "blocked-image",
-            textContent: `外部画像は読み込みません: ${source}`,
+            textContent: `External images are not loaded: ${source}`,
           }));
           return;
         }
@@ -186,7 +186,7 @@ function App() {
           image.setAttribute("src", asset);
         } catch {
           image.classList.add("broken-image");
-          image.setAttribute("alt", `${image.getAttribute("alt") ?? "image"} (読み込めません)`);
+          image.setAttribute("alt", `${image.getAttribute("alt") ?? "image"} (failed to load)`);
         }
       }),
     );
@@ -211,7 +211,7 @@ function App() {
     const exportSource = contentRef.current?.querySelector<HTMLElement>(".markdown-content");
     const exportTarget = pdfExportContentRef.current;
     if (!exportSource || !exportTarget) {
-      setErrorMessage("PDF 出力の準備に失敗しました。");
+      setErrorMessage("Failed to prepare PDF export.");
       return;
     }
     exportTarget.innerHTML = exportSource.innerHTML;
@@ -242,7 +242,7 @@ function App() {
     async (paths: string[]) => {
       const firstMarkdown = paths.find((path) => path.toLowerCase().endsWith(".md"));
       if (!firstMarkdown) {
-        setErrorMessage("`.md` ファイルだけ開けます。");
+        setErrorMessage("Only `.md` files can be opened.");
         return;
       }
       await loadDocument(firstMarkdown);
@@ -538,7 +538,7 @@ function App() {
       {(errorMessage || renderError || watcherNotice) && (
         <section className="message-stack">
           {errorMessage && <div className="message error">{errorMessage}</div>}
-          {renderError && <div className="message error">Markdown の描画に失敗しました: {renderError}</div>}
+          {renderError && <div className="message error">Failed to render Markdown: {renderError}</div>}
           {watcherNotice && <div className="message notice">{watcherNotice}</div>}
         </section>
       )}
@@ -547,12 +547,12 @@ function App() {
         {!document ? (
           <div className="empty-state">
             <h1>Markdown Viewer</h1>
-            <p>ローカルの `.md` を表示します。編集機能はありません。</p>
+            <p>A view-only Markdown reader. No editing features.</p>
             <div className="empty-actions">
               <button className="primary-button" onClick={() => void handleOpenDialog()} type="button">
                 Open…
               </button>
-              <span>または Finder からドラッグ&ドロップ</span>
+              <span>or drag &amp; drop from Finder</span>
             </div>
           </div>
         ) : (
