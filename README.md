@@ -1,5 +1,7 @@
 # Markdown Viewer for macOS
 
+<img alt="app-icon" src="icon/mdv_icon.png" width="300">
+
 Markdown Viewer is a lightweight macOS desktop app for **reading local Markdown files**.
 It is intentionally **view-only**: no editor, no workspace manager, no sync layer.
 
