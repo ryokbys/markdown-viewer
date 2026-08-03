@@ -1,3 +1,4 @@
+import { parse as parseYAML } from "yaml";
 import { unified } from "unified";
 import remarkParse from "remark-parse";
 import remarkGfm from "remark-gfm";
@@ -62,7 +63,43 @@ const processor = unified()
   })
   .use(rehypeStringify);
 
+const FRONTMATTER_RE = /^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/;
+
+function extractFrontmatter(markdown: string): { yaml: string | null; body: string } {
+  const m = FRONTMATTER_RE.exec(markdown);
+  if (!m) return { yaml: null, body: markdown };
+  return { yaml: m[1], body: markdown.slice(m[0].length) };
+}
+
+function formatValue(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  if (Array.isArray(value)) return value.map(formatValue).join(", ");
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
+}
+
+function frontmatterToTable(yamlStr: string): string {
+  let data: unknown;
+  try {
+    data = parseYAML(yamlStr);
+  } catch {
+    return "";
+  }
+  if (!data || typeof data !== "object" || Array.isArray(data)) return "";
+  const entries = Object.entries(data as Record<string, unknown>);
+  if (entries.length === 0) return "";
+  const rows = entries.map(([k, v]) => {
+    const safeKey = k.replace(/\|/g, "\\|").replace(/\n/g, " ");
+    const safeVal = formatValue(v).replace(/\|/g, "\\|").replace(/\n/g, " ");
+    return `| ${safeKey} | ${safeVal} |`;
+  });
+  return `| Property | Value |\n| --- | --- |\n${rows.join("\n")}`;
+}
+
 export async function renderMarkdown(markdown: string): Promise<string> {
-  const rendered = await processor.process(markdown);
+  const { yaml, body } = extractFrontmatter(markdown);
+  const table = yaml ? frontmatterToTable(yaml) : "";
+  const source = table ? `${table}\n\n${body}` : body;
+  const rendered = await processor.process(source);
   return String(rendered);
 }

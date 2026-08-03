@@ -52,6 +52,7 @@ function App() {
   const pendingAnchorRef = useRef<string | null>(null);
   const pendingScrollRatioRef = useRef<number | null>(null);
   const themeCssCache = useRef<Map<string, string>>(new Map([["default", ""]]));
+  const imageAssetCacheRef = useRef<Map<string, string>>(new Map());
 
   const activeThemeOptions = useMemo(
     () => [DEFAULT_THEME_OPTION, ...themeOptions.filter((option) => option.id !== "default")],
@@ -178,11 +179,18 @@ function App() {
           return;
         }
 
+        const cached = imageAssetCacheRef.current.get(source);
+        if (cached !== undefined) {
+          image.setAttribute("src", cached);
+          return;
+        }
+
         try {
           const asset = await invoke<string>("load_image_asset", {
             documentPath: document.path,
             source,
           });
+          imageAssetCacheRef.current.set(source, asset);
           image.setAttribute("src", asset);
         } catch {
           image.classList.add("broken-image");
@@ -376,6 +384,12 @@ function App() {
         setRenderError(error instanceof Error ? error.message : String(error));
       });
   }, [document]);
+  // Clear the image asset cache whenever the active document changes so stale
+  // data URLs are not reused for a different file.
+  useEffect(() => {
+    imageAssetCacheRef.current.clear();
+  }, [document]);
+
 
   useEffect(() => {
     if (!document || !html) {
@@ -395,6 +409,23 @@ function App() {
 
     return () => window.clearTimeout(timer);
   }, [document, handleAnchorJump, html, loadImageAssets, restoreScrollRatio]);
+
+  // Re-apply cached data URLs after a window resize.  React does not touch
+  // dangerouslySetInnerHTML when the html string is unchanged, but on some
+  // WKWebView versions the resize event can reset img src attributes back to
+  // their original relative paths.  This re-apply is a cheap DOM scan and is
+  // a no-op when all images already carry data: URLs.
+  useEffect(() => {
+    const node = contentRef.current;
+    if (!node || imageAssetCacheRef.current.size === 0) return;
+    for (const img of node.querySelectorAll<HTMLImageElement>("img")) {
+      const src = img.getAttribute("src");
+      if (src && !src.startsWith("data:")) {
+        const cached = imageAssetCacheRef.current.get(src);
+        if (cached !== undefined) img.setAttribute("src", cached);
+      }
+    }
+  }, [windowWidth]);
 
   useEffect(() => {
     void applyTheme(settings.theme, { silentFallback: true });
