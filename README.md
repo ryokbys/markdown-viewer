@@ -84,6 +84,11 @@ Example:
 mdv hoge.md
 ```
 
+To upgrade:
+```bash
+brew upgrade --cask ryokbys/markdown-viewer/markdown-viewer
+```
+
 ## Basic usage
 
 ### Open a Markdown file
