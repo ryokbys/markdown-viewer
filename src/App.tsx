@@ -159,46 +159,6 @@ function App() {
     [snapshotScrollRatio],
   );
 
-  const loadImageAssets = useCallback(async () => {
-    if (!document || !contentRef.current) {
-      return;
-    }
-
-    const images = Array.from(contentRef.current.querySelectorAll("img"));
-    await Promise.all(
-      images.map(async (image) => {
-        const source = image.getAttribute("src");
-        if (!source || source.startsWith("data:")) {
-          return;
-        }
-        if (/^https?:\/\//i.test(source)) {
-          image.replaceWith(Object.assign(globalThis.document.createElement("span"), {
-            className: "blocked-image",
-            textContent: `External images are not loaded: ${source}`,
-          }));
-          return;
-        }
-
-        const cached = imageAssetCacheRef.current.get(source);
-        if (cached !== undefined) {
-          image.setAttribute("src", cached);
-          return;
-        }
-
-        try {
-          const asset = await invoke<string>("load_image_asset", {
-            documentPath: document.path,
-            source,
-          });
-          imageAssetCacheRef.current.set(source, asset);
-          image.setAttribute("src", asset);
-        } catch {
-          image.classList.add("broken-image");
-          image.setAttribute("alt", `${image.getAttribute("alt") ?? "image"} (failed to load)`);
-        }
-      }),
-    );
-  }, [document]);
 
   const handleOpenDialog = useCallback(async () => {
     const selected = await open({
@@ -373,59 +333,95 @@ function App() {
   }, [handleOpenDialog, persistSettings]);
 
 
-  useEffect(() => {
-    void renderMarkdown(document?.markdown ?? "")
-      .then((nextHtml) => {
-        setHtml(nextHtml);
-        setRenderError(null);
-      })
-      .catch((error) => {
-        setHtml("");
-        setRenderError(error instanceof Error ? error.message : String(error));
-      });
-  }, [document]);
-  // Clear the image asset cache whenever the active document changes so stale
-  // data URLs are not reused for a different file.
+  // Render markdown and embed image assets into the html state itself.
+  // By storing data: URLs in state (not in live DOM attributes), React always
+  // renders correct images regardless of how many times it re-renders.
   useEffect(() => {
     imageAssetCacheRef.current.clear();
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const rawHtml = await renderMarkdown(document?.markdown ?? "");
+        if (cancelled) return;
+        setHtml(rawHtml);
+        setRenderError(null);
+
+        if (!document) return;
+
+        // Process images in a throwaway DOM; never touch the live React DOM.
+        const tmpDoc = new DOMParser().parseFromString(rawHtml, "text/html");
+        let changed = false;
+
+        await Promise.all(
+          Array.from(tmpDoc.body.querySelectorAll<HTMLImageElement>("img")).map(async (img) => {
+            const src = img.getAttribute("src");
+            if (!src || src.startsWith("data:")) return;
+
+            if (/^https?:\/\//i.test(src)) {
+              const span = tmpDoc.createElement("span");
+              span.className = "blocked-image";
+              span.textContent = `External images are not loaded: ${src}`;
+              img.replaceWith(span);
+              changed = true;
+              return;
+            }
+
+            const cached = imageAssetCacheRef.current.get(src);
+            if (cached !== undefined) {
+              img.setAttribute("src", cached);
+              changed = true;
+              return;
+            }
+
+            try {
+              const asset = await invoke<string>("load_image_asset", {
+                documentPath: document.path,
+                source: src,
+              });
+              imageAssetCacheRef.current.set(src, asset);
+              img.setAttribute("src", asset);
+              changed = true;
+            } catch {
+              img.classList.add("broken-image");
+              img.setAttribute("alt", `${img.getAttribute("alt") ?? "image"} (failed to load)`);
+            }
+          }),
+        );
+
+        if (!cancelled && changed) {
+          setHtml(tmpDoc.body.innerHTML);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setHtml("");
+          setRenderError(error instanceof Error ? error.message : String(error));
+        }
+      }
+    })();
+
+    return () => { cancelled = true; };
   }, [document]);
 
-
+  // Restore scroll position or jump to anchor after html is committed to DOM.
+  // Runs on every html change; the second invocation (after processedHtml
+  // replaces rawHtml) is always a no-op because the pending refs are cleared
+  // by the first invocation.
   useEffect(() => {
-    if (!document || !html) {
-      return;
-    }
+    if (!document || !html) return;
 
     const timer = window.setTimeout(() => {
-      void loadImageAssets().then(() => {
-        if (pendingAnchorRef.current) {
-          handleAnchorJump(pendingAnchorRef.current);
-          pendingAnchorRef.current = null;
-        } else {
-          restoreScrollRatio();
-        }
-      });
+      if (pendingAnchorRef.current) {
+        handleAnchorJump(pendingAnchorRef.current);
+        pendingAnchorRef.current = null;
+      } else {
+        restoreScrollRatio();
+      }
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [document, handleAnchorJump, html, loadImageAssets, restoreScrollRatio]);
+  }, [document, handleAnchorJump, html, restoreScrollRatio]);
 
-  // Re-apply cached data URLs after a window resize.  React does not touch
-  // dangerouslySetInnerHTML when the html string is unchanged, but on some
-  // WKWebView versions the resize event can reset img src attributes back to
-  // their original relative paths.  This re-apply is a cheap DOM scan and is
-  // a no-op when all images already carry data: URLs.
-  useEffect(() => {
-    const node = contentRef.current;
-    if (!node || imageAssetCacheRef.current.size === 0) return;
-    for (const img of node.querySelectorAll<HTMLImageElement>("img")) {
-      const src = img.getAttribute("src");
-      if (src && !src.startsWith("data:")) {
-        const cached = imageAssetCacheRef.current.get(src);
-        if (cached !== undefined) img.setAttribute("src", cached);
-      }
-    }
-  }, [windowWidth]);
 
   useEffect(() => {
     void applyTheme(settings.theme, { silentFallback: true });
