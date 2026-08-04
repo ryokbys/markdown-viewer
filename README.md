@@ -22,6 +22,9 @@ Use another tool if you need:
 - search across many documents
 - printing
 
+[![Youtube video](samples/assets/video_thumbnail.jpg)](https://youtu.be/azvE-2rGpY8)
+
+
 ## Installation
 
 ### Option 1: Run from source
