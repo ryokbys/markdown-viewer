@@ -333,9 +333,11 @@ function App() {
   }, [handleOpenDialog, persistSettings]);
 
 
-  // Render markdown and embed image assets into the html state itself.
-  // By storing data: URLs in state (not in live DOM attributes), React always
-  // renders correct images regardless of how many times it re-renders.
+  // Render markdown and embed image assets into the html state.
+  // html is set exactly once per document change, after all local images have
+  // been resolved to data: URLs.  Setting it before that would create a brief
+  // intermediate state (relative src) that any concurrent re-render caused by
+  // theme / font / width changes could make visible, breaking the images.
   useEffect(() => {
     imageAssetCacheRef.current.clear();
     let cancelled = false;
@@ -344,14 +346,15 @@ function App() {
       try {
         const rawHtml = await renderMarkdown(document?.markdown ?? "");
         if (cancelled) return;
-        setHtml(rawHtml);
-        setRenderError(null);
 
-        if (!document) return;
+        if (!document) {
+          setHtml(rawHtml);
+          setRenderError(null);
+          return;
+        }
 
         // Process images in a throwaway DOM; never touch the live React DOM.
         const tmpDoc = new DOMParser().parseFromString(rawHtml, "text/html");
-        let changed = false;
 
         await Promise.all(
           Array.from(tmpDoc.body.querySelectorAll<HTMLImageElement>("img")).map(async (img) => {
@@ -363,14 +366,12 @@ function App() {
               span.className = "blocked-image";
               span.textContent = `External images are not loaded: ${src}`;
               img.replaceWith(span);
-              changed = true;
               return;
             }
 
             const cached = imageAssetCacheRef.current.get(src);
             if (cached !== undefined) {
               img.setAttribute("src", cached);
-              changed = true;
               return;
             }
 
@@ -381,7 +382,6 @@ function App() {
               });
               imageAssetCacheRef.current.set(src, asset);
               img.setAttribute("src", asset);
-              changed = true;
             } catch {
               img.classList.add("broken-image");
               img.setAttribute("alt", `${img.getAttribute("alt") ?? "image"} (failed to load)`);
@@ -389,8 +389,9 @@ function App() {
           }),
         );
 
-        if (!cancelled && changed) {
+        if (!cancelled) {
           setHtml(tmpDoc.body.innerHTML);
+          setRenderError(null);
         }
       } catch (error) {
         if (!cancelled) {
@@ -403,10 +404,10 @@ function App() {
     return () => { cancelled = true; };
   }, [document]);
 
+
   // Restore scroll position or jump to anchor after html is committed to DOM.
-  // Runs on every html change; the second invocation (after processedHtml
-  // replaces rawHtml) is always a no-op because the pending refs are cleared
-  // by the first invocation.
+  // html is now set exactly once per document (after image processing), so
+  // this effect fires once per document change.
   useEffect(() => {
     if (!document || !html) return;
 
