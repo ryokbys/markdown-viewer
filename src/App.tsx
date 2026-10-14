@@ -1,10 +1,28 @@
-import { type MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { openPath, openUrl } from "@tauri-apps/plugin-opener";
-import { FaFileAlt, FaFilePdf, FaFolderOpen, FaPalette, FaTextHeight } from "react-icons/fa";
+import {
+  FaChevronDown,
+  FaChevronUp,
+  FaFileAlt,
+  FaFilePdf,
+  FaFolderOpen,
+  FaPalette,
+  FaSearch,
+  FaTextHeight,
+  FaTimes,
+} from "react-icons/fa";
 import "katex/dist/katex.min.css";
 import "./App.css";
 import { renderMarkdown } from "./lib/markdown";
@@ -35,6 +53,85 @@ function ensurePdfExtension(path: string) {
   return path.toLowerCase().endsWith(".pdf") ? path : `${path}.pdf`;
 }
 
+const SEARCH_HIGHLIGHT_CLASS = "search-highlight";
+const SEARCH_HIGHLIGHT_CURRENT_CLASS = "search-highlight-current";
+
+// Builds a new HTML string from `baseHtml` with every case-insensitive
+// occurrence of `query` wrapped in <mark class="search-highlight">, marking
+// the occurrence at `currentIndex` with an extra "current" class.
+//
+// This works on a string (via a throwaway DOMParser document) rather than
+// mutating the live DOM: React re-renders the dangerouslySetInnerHTML host
+// element on *any* state change (not only when the __html string itself
+// changes), which wipes out live DOM edits such as inserted <mark> elements.
+// Baking the marks into the html string itself means every render — no
+// matter what triggered it — shows the correct highlights.
+//
+// Matches are only found within individual text nodes, so a search term
+// split across inline formatting (e.g. "wo**rd**") will not match — an
+// acceptable limitation for a lightweight in-document search.
+function buildSearchHtml(
+  baseHtml: string,
+  query: string,
+  currentIndex: number,
+): { html: string; count: number } {
+  const trimmed = query.trim();
+  if (!trimmed) {
+    return { html: baseHtml, count: 0 };
+  }
+
+  const tmpDoc = new DOMParser().parseFromString(baseHtml, "text/html");
+  const lowerQuery = trimmed.toLowerCase();
+  let matchIndex = 0;
+
+  const walker = tmpDoc.createTreeWalker(tmpDoc.body, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      const parent = (node as Text).parentElement;
+      if (!parent || parent.closest("script, style")) {
+        return NodeFilter.FILTER_REJECT;
+      }
+      return NodeFilter.FILTER_ACCEPT;
+    },
+  });
+
+  const textNodes: Text[] = [];
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    textNodes.push(node as Text);
+  }
+
+  for (const textNode of textNodes) {
+    const text = textNode.textContent ?? "";
+    const lowerText = text.toLowerCase();
+    let lastEnd = 0;
+    let idx = lowerText.indexOf(lowerQuery, lastEnd);
+    if (idx === -1) continue;
+
+    const frag = tmpDoc.createDocumentFragment();
+    while (idx !== -1) {
+      if (idx > lastEnd) {
+        frag.appendChild(tmpDoc.createTextNode(text.slice(lastEnd, idx)));
+      }
+      const mark = tmpDoc.createElement("mark");
+      mark.className =
+        matchIndex === currentIndex
+          ? `${SEARCH_HIGHLIGHT_CLASS} ${SEARCH_HIGHLIGHT_CURRENT_CLASS}`
+          : SEARCH_HIGHLIGHT_CLASS;
+      mark.textContent = text.slice(idx, idx + trimmed.length);
+      frag.appendChild(mark);
+      matchIndex += 1;
+      lastEnd = idx + trimmed.length;
+      idx = lowerText.indexOf(lowerQuery, lastEnd);
+    }
+    if (lastEnd < text.length) {
+      frag.appendChild(tmpDoc.createTextNode(text.slice(lastEnd)));
+    }
+    textNode.parentNode?.replaceChild(frag, textNode);
+  }
+
+  return { html: tmpDoc.body.innerHTML, count: matchIndex };
+}
+
+
 function App() {
   const [document, setDocument] = useState<DocumentPayload | null>(null);
   const [html, setHtml] = useState("");
@@ -47,12 +144,21 @@ function App() {
   const [isDragging, setIsDragging] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
   const [windowWidth, setWindowWidth] = useState(() => getWindowWidth());
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
+  const [matchCount, setMatchCount] = useState(0);
+  const [currentMatchIndex, setCurrentMatchIndex] = useState(-1);
+  const [baseHtmlVersion, setBaseHtmlVersion] = useState(0);
   const contentRef = useRef<HTMLDivElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const pdfExportContentRef = useRef<HTMLDivElement | null>(null);
   const pendingAnchorRef = useRef<string | null>(null);
   const pendingScrollRatioRef = useRef<number | null>(null);
   const themeCssCache = useRef<Map<string, string>>(new Map([["default", ""]]));
   const imageAssetCacheRef = useRef<Map<string, string>>(new Map());
+  // Post-image-processing html, with no search marks baked in. The visible
+  // `html` state is always derived from this (see the search-apply effect).
+  const baseHtmlRef = useRef<string>("");
 
   const activeThemeOptions = useMemo(
     () => [DEFAULT_THEME_OPTION, ...themeOptions.filter((option) => option.id !== "default")],
@@ -158,6 +264,44 @@ function App() {
     },
     [snapshotScrollRatio],
   );
+
+  // Regenerates the rendered html from the pristine base content with search
+  // marks baked in at `activeIndex`, and updates the match-count/index state
+  // to match.  This is the sole writer of both `html` and the match state
+  // while a document is loaded, so there is never a stale mismatch between
+  // what's on screen and what the counter says.
+  const recomputeSearch = useCallback((query: string, activeIndex: number) => {
+    const { html: nextHtml, count } = buildSearchHtml(baseHtmlRef.current, query, activeIndex);
+    setHtml(nextHtml);
+    setMatchCount(count);
+    setCurrentMatchIndex(count > 0 ? activeIndex : -1);
+  }, []);
+
+  const goToMatch = useCallback(
+    (delta: number) => {
+      if (matchCount === 0) return;
+      const base = currentMatchIndex < 0 ? 0 : currentMatchIndex;
+      const next = (base + delta + matchCount) % matchCount;
+      recomputeSearch(searchQuery, next);
+    },
+    [currentMatchIndex, matchCount, recomputeSearch, searchQuery],
+  );
+
+
+  const handleSearchKeyDown = useCallback(
+    (event: ReactKeyboardEvent<HTMLInputElement>) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        goToMatch(event.shiftKey ? -1 : 1);
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        setSearchQuery("");
+        event.currentTarget.blur();
+      }
+    },
+    [goToMatch],
+  );
+
 
 
   const handleOpenDialog = useCallback(async () => {
@@ -292,6 +436,21 @@ function App() {
   }, []);
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      // Cmd+F / Cmd+G must work even while the search input itself is
+      // focused, so they're checked before the INPUT/SELECT/TEXTAREA guard.
+      if (event.metaKey && event.key.toLowerCase() === "f") {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+        return;
+      }
+
+      if (event.metaKey && event.key.toLowerCase() === "g") {
+        event.preventDefault();
+        goToMatch(event.shiftKey ? -1 : 1);
+        return;
+      }
+
       const target = event.target as HTMLElement;
       if (target.tagName === "INPUT" || target.tagName === "SELECT" || target.tagName === "TEXTAREA") {
         return;
@@ -330,14 +489,13 @@ function App() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleOpenDialog, persistSettings]);
+  }, [goToMatch, handleOpenDialog, persistSettings]);
 
 
-  // Render markdown and embed image assets into the html state.
-  // html is set exactly once per document change, after all local images have
-  // been resolved to data: URLs.  Setting it before that would create a brief
-  // intermediate state (relative src) that any concurrent re-render caused by
-  // theme / font / width changes could make visible, breaking the images.
+  // Render markdown and embed image assets, storing the result in
+  // baseHtmlRef (the pristine content with no search marks).  The visible
+  // `html` state is derived from this by the search-apply effect below,
+  // which is the sole writer of `html` while a document is loaded.
   useEffect(() => {
     imageAssetCacheRef.current.clear();
     let cancelled = false;
@@ -348,8 +506,9 @@ function App() {
         if (cancelled) return;
 
         if (!document) {
-          setHtml(rawHtml);
+          baseHtmlRef.current = rawHtml;
           setRenderError(null);
+          setBaseHtmlVersion((v) => v + 1);
           return;
         }
 
@@ -390,13 +549,15 @@ function App() {
         );
 
         if (!cancelled) {
-          setHtml(tmpDoc.body.innerHTML);
+          baseHtmlRef.current = tmpDoc.body.innerHTML;
           setRenderError(null);
+          setBaseHtmlVersion((v) => v + 1);
         }
       } catch (error) {
         if (!cancelled) {
-          setHtml("");
+          baseHtmlRef.current = "";
           setRenderError(error instanceof Error ? error.message : String(error));
+          setBaseHtmlVersion((v) => v + 1);
         }
       }
     })();
@@ -422,6 +583,31 @@ function App() {
 
     return () => window.clearTimeout(timer);
   }, [document, handleAnchorJump, html, restoreScrollRatio]);
+
+  // Debounce the raw typed query so rapid keystrokes don't each trigger a
+  // full DOM highlight pass on large documents.
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearchQuery(searchQuery), 150);
+    return () => window.clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Re-derive the visible html (base content + baked-in search marks)
+  // whenever the base content changes (new document, reload, images
+  // committed) or the debounced query changes.  A fresh search always
+  // starts at the first match.
+  useEffect(() => {
+    recomputeSearch(debouncedSearchQuery, 0);
+  }, [baseHtmlVersion, debouncedSearchQuery, recomputeSearch]);
+
+  // Scroll the current match into view once its <mark> exists in the
+  // committed DOM (i.e. after the html state above has rendered).
+  useEffect(() => {
+    if (currentMatchIndex < 0) return;
+    const node = contentRef.current?.querySelector<HTMLElement>(`.${SEARCH_HIGHLIGHT_CURRENT_CLASS}`);
+    node?.scrollIntoView({ block: "center" });
+  }, [currentMatchIndex, html]);
+
+
 
 
   useEffect(() => {
@@ -506,6 +692,53 @@ function App() {
         </div>
 
         <div className="toolbar-group toolbar-controls">
+          <div className="search-box">
+            <FaSearch className="search-icon" aria-hidden="true" />
+            <input
+              ref={searchInputRef}
+              type="text"
+              className="search-input"
+              placeholder="Search…"
+              value={searchQuery}
+              disabled={!document}
+              onChange={(event) => setSearchQuery(event.currentTarget.value)}
+              onKeyDown={handleSearchKeyDown}
+            />
+            {searchQuery && (
+              <div className="search-controls">
+                <span className="search-count">
+                  {matchCount > 0 ? `${currentMatchIndex + 1}/${matchCount}` : "0/0"}
+                </span>
+                <button
+                  type="button"
+                  className="search-nav-button"
+                  aria-label="Previous match"
+                  disabled={matchCount === 0}
+                  onClick={() => goToMatch(-1)}
+                >
+                  <FaChevronUp />
+                </button>
+                <button
+                  type="button"
+                  className="search-nav-button"
+                  aria-label="Next match"
+                  disabled={matchCount === 0}
+                  onClick={() => goToMatch(1)}
+                >
+                  <FaChevronDown />
+                </button>
+                <button
+                  type="button"
+                  className="search-clear-button"
+                  aria-label="Clear search"
+                  onClick={() => setSearchQuery("")}
+                >
+                  <FaTimes />
+                </button>
+              </div>
+            )}
+          </div>
+
           <label>
             <FaPalette />
             <select

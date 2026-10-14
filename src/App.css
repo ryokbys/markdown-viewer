@@ -85,6 +85,73 @@ button:disabled {
   background: #fff;
 }
 
+.search-box {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #d0d7de;
+  border-radius: 8px;
+  padding: 6px 10px;
+  background: #fff;
+  color: #57606a;
+}
+
+.search-icon {
+  flex-shrink: 0;
+  font-size: 0.85em;
+}
+
+.search-input {
+  border: 0;
+  outline: none;
+  font: inherit;
+  color: #1f2328;
+  width: 160px;
+  background: transparent;
+}
+
+.search-input:disabled {
+  cursor: not-allowed;
+}
+
+.search-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding-left: 6px;
+  border-left: 1px solid #d0d7de;
+}
+
+.search-count {
+  font-size: 0.8em;
+  white-space: nowrap;
+  padding: 0 4px;
+}
+
+.search-nav-button,
+.search-clear-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: #57606a;
+  padding: 4px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.search-nav-button:hover:not(:disabled),
+.search-clear-button:hover {
+  background: #f6f8fa;
+}
+
+.search-nav-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+
 .primary-button {
   display: inline-flex;
   align-items: center;
@@ -386,6 +453,20 @@ body.pdf-export-mode .pdf-export-root {
   margin: 0;
   background: transparent !important;
 }
+
+.markdown-body mark.search-highlight {
+  background: #fff3a3;
+  color: #1f2328;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+.markdown-body mark.search-highlight-current {
+  background: #ffb703;
+  outline: 2px solid #d18a00;
+  outline-offset: 1px;
+}
+
 
 .blocked-image,
 .broken-image {
